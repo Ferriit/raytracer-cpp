@@ -8,6 +8,8 @@ uniform float fov;
 uniform vec3 camerapos;
 uniform vec3 camerarotation;
 
+uniform int framecount;
+
 
 struct material {
     vec4 color;         // x, y, z are rgb color, w is emission
@@ -91,32 +93,40 @@ float sceneSDF(vec3 p) {
     return minDist;
 }
 
-float rand(vec2 p)
-{
-    vec3 p3  = fract(vec3(p.xyx) * 0.1031);
-    p3 += dot(p3, p3.yzx + 33.33);
-    return fract((p3.x + p3.y) * p3.z);
+uint hash_u32(uint x) {
+    x ^= x >> 16;
+    x *= 0x7feb352du;
+    x ^= x >> 15;
+    x *= 0x846ca68bu;
+    x ^= x >> 16;
+    return x;
 }
 
-float hash13(vec3 p) {
-    p  = fract(p * 0.1031);
-    p += dot(p, p.yzx + 33.33);
-    return fract((p.x + p.y) * p.z);
+uint rng_state;
+
+float rand() {
+    rng_state = rng_state * 747796405u + 2891336453u;
+    uint x = ((rng_state >> ((rng_state >> 28) + 4)) ^ rng_state) * 277803737u;
+    x = (x >> 22) ^ x;
+    return float(x) * (1.0 / 4294967296.0);
 }
 
 
-vec3 randomhemispherevector(vec3 normal, vec2 seed) {
-    float u1 = rand(seed);
-    float u2 = rand(seed.yx + 1.0);
+vec3 randomhemispherevector(vec3 normal) {
+    float u1 = rand();
+    float u2 = rand();
 
     float r = sqrt(u1);
-    float theta = 2.0 * 3.14159265 * u2;
+    float theta = 6.28318530718 * u2;
 
     float x = r * cos(theta);
     float y = r * sin(theta);
     float z = sqrt(1.0 - u1);
 
-    vec3 tangent = normalize(cross(normal, abs(normal.x) < 0.999 ? vec3(1,0,0) : vec3(0,1,0)));
+    vec3 tangent = normalize(
+        abs(normal.x) < 0.999 ? cross(normal, vec3(1,0,0))
+                              : cross(normal, vec3(0,1,0))
+    );
     vec3 bitangent = cross(normal, tangent);
 
     return normalize(x * tangent + y * bitangent + z * normal);
@@ -259,9 +269,14 @@ rayinfo raytrace(vec3 rayorigin, vec3 raydirection, int maxbounces, int samples)
     data.distancetraveled = 0.0;
     data.normalvec = vec3(0.0);
 
-    float seed = 812739.0;
-
     for (int s = 0; s < samples; s++) {
+        rng_state = hash_u32(
+            uint(gl_FragCoord.x)
+          ^ uint(gl_FragCoord.y) * 4099u
+          ^ uint(framecount) * 131071u
+          ^ uint(s) * 8191u
+        );
+
         vec3 origin = rayorigin;
         vec3 direction = raydirection;
 
@@ -278,14 +293,10 @@ rayinfo raytrace(vec3 rayorigin, vec3 raydirection, int maxbounces, int samples)
             throughput *= hit.mat.color.xyz;
             origin = hit.position + normal * 0.0005;
 
-            // independent random numbers
-            float r1 = hash13(vec3(gl_FragCoord.xy, bounce + float(s)*13.0));
-            float r2 = hash13(vec3(gl_FragCoord.xy, bounce + 17.0 + float(s)*13.0));
-
-            vec3 diffuseDir = randomhemispherevector(normal, vec2(r1, r2));
+            vec3 diffuseDir = randomhemispherevector(normal);
             vec3 specularDir = normalize(direction - 2.0 * dot(direction, normal) * normal);
 
-            float choose = hash13(vec3(gl_FragCoord.xy, bounce + 31.0));
+            float choose = rand();
             direction = (choose < hit.mat.specularcoefficient) ? specularDir : diffuseDir;
         }
 

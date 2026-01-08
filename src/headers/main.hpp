@@ -75,6 +75,8 @@ class renderer {
 
         int fov = 90;
 
+        int framecount;
+
         GLuint program;
 
         SDL_Window *window;
@@ -280,8 +282,12 @@ class renderer {
                     mat = {{1.0f, 1.0f, 1.0f, 50.0f}, 0.0f};
                     spheres.push_back({.pos=glm::vec4(0, 5.0f, 0.5f, 0.5f), .mat=mat});
                 
-                } else {
+                } else if (i % 2) {
                     mat = {{1.0f, 0.0f, 0.0f, 0.0f}, 0.0f};
+                    spheres.push_back({.pos=glm::vec4(i - 8, 0.5f, 0.5f, 0.5f), .mat=mat});
+
+                } else {
+                    mat = {{1.0f, 0.0f, 0.0f, 0.0f}, 0.95f};
                     spheres.push_back({.pos=glm::vec4(i - 8, 0.5f, 0.5f, 0.5f), .mat=mat});
                 }
             }
@@ -378,7 +384,14 @@ class renderer {
 
                 GLuint cameraRotLoc = glGetUniformLocation(program, "camerarotation");
                 glUniform3f(cameraRotLoc, (float)this->camera.rotation.x, this->camera.rotation.y, this->camera.rotation.z);
-                    
+
+
+                GLuint framecountLoc = glGetUniformLocation(program, "framecount");
+                glUniform1i(framecountLoc, (float)this->framecount);
+
+
+                this->framecount++;
+
                 glClear(GL_COLOR_BUFFER_BIT);
         
                 glUseProgram(program);
