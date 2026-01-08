@@ -310,7 +310,7 @@ rayinfo raytrace(vec3 rayorigin, vec3 raydirection, int maxbounces, int samples)
 void main() {
     vec3 raydir = getpixelvector();
 
-    rayinfo ray = raytrace(camerapos, raydir, 5, 1024);
+    rayinfo ray = raytrace(camerapos, raydir, 5, 384);
 
     FragColor = vec4(ray.mat.color.xyz, 1.0);
 }
